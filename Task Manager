@@ -1,0 +1,131 @@
+import os
+
+# Task class to store task data
+class Task:
+    def __init__(self, title, description, status="Incomplete"):
+        self.title = title
+        self.description = description
+        self.status = status
+    
+    def __str__(self):
+        return f"{self.title} - {self.description} [{self.status}]"
+
+# Task Manager class to manage tasks
+class TaskManager:
+    def __init__(self, file_name="tasks.txt"):
+        self.file_name = file_name
+        self.tasks = []
+        self.load_tasks()
+    
+    def load_tasks(self):
+        """Load tasks from the file into the task list"""
+        if os.path.exists(self.file_name):
+            with open(self.file_name, 'r') as file:
+                for line in file:
+                    title, description, status = line.strip().split('|')
+                    self.tasks.append(Task(title, description, status))
+    
+    def save_tasks(self):
+        """Save all tasks to the file"""
+        with open(self.file_name, 'w') as file:
+            for task in self.tasks:
+                file.write(f"{task.title}|{task.description}|{task.status}\n")
+    
+    def add_task(self, title, description):
+        """Add a new task"""
+        task = Task(title, description)
+        self.tasks.append(task)
+        self.save_tasks()
+        print(f"Task '{title}' added successfully.")
+    
+    def update_task(self, title, new_title=None, new_description=None, new_status=None):
+        """Update an existing task by title"""
+        for task in self.tasks:
+            if task.title == title:
+                if new_title:
+                    task.title = new_title
+                if new_description:
+                    task.description = new_description
+                if new_status:
+                    task.status = new_status
+                self.save_tasks()
+                print(f"Task '{title}' updated.")
+                return
+        print(f"Task '{title}' not found.")
+    
+    def delete_task(self, title):
+        """Delete a task by title"""
+        for task in self.tasks:
+            if task.title == title:
+                self.tasks.remove(task)
+                self.save_tasks()
+                print(f"Task '{title}' deleted.")
+                return
+        print(f"Task '{title}' not found.")
+    
+    def view_tasks(self):
+        """View all tasks"""
+        if not self.tasks:
+            print("No tasks found.")
+        for task in self.tasks:
+            print(task)
+
+# Command-line interface (CLI) for Task Manager
+class TaskManagerCLI:
+    def __init__(self):
+        self.manager = TaskManager()
+    
+    def show_menu(self):
+        """Display the main menu"""
+        print("\nTask Manager")
+        print("1. View all tasks")
+        print("2. Add a new task")
+        print("3. Update an existing task")
+        print("4. Delete a task")
+        print("5. Exit")
+    
+    def get_user_choice(self):
+        """Get user's choice from the menu"""
+        while True:
+            try:
+                choice = int(input("Choose an option: "))
+                if choice in [1, 2, 3, 4, 5]:
+                    return choice
+                else:
+                    print("Invalid choice, try again.")
+            except ValueError:
+                print("Please enter a valid number.")
+    
+    def execute_choice(self, choice):
+        """Execute the chosen option"""
+        if choice == 1:
+            self.manager.view_tasks()
+        elif choice == 2:
+            title = input("Enter task title: ")
+            description = input("Enter task description: ")
+            self.manager.add_task(title, description)
+        elif choice == 3:
+            title = input("Enter task title to update: ")
+            new_title = input("Enter new title (leave blank to keep current): ")
+            new_description = input("Enter new description (leave blank to keep current): ")
+            new_status = input("Enter new status (leave blank to keep current): ")
+            self.manager.update_task(title, new_title or None, new_description or None, new_status or None)
+        elif choice == 4:
+            title = input("Enter task title to delete: ")
+            self.manager.delete_task(title)
+        elif choice == 5:
+            print("Goodbye!")
+            exit()
+
+    def run(self):
+        """Run the CLI"""
+        while True:
+            self.show_menu()
+            choice = self.get_user_choice()
+            self.execute_choice(choice)
+
+# Run the Task Manager CLI
+if __name__ == "__main__":
+    cli = TaskManagerCLI()
+    cli.run()
+
