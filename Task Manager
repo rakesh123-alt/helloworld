@@ -1,131 +1,247 @@
-import os
+import random
+import time
 
-# Task class to store task data
-class Task:
-    def __init__(self, title, description, status="Incomplete"):
-        self.title = title
-        self.description = description
-        self.status = status
-    
+# Constants for the game
+ROOMS = ["Entrance", "Hallway", "Library", "Armory", "Dungeon", "Treasure Room", "Cavern", "Hall of Mirrors", "Dragon Lair", "Royal Chamber"]
+ITEMS = ["Health Potion", "Sword", "Shield", "Gold", "Map", "Mystic Stone", "Cursed Amulet", "Ring of Power"]
+ENEMIES = ["Goblin", "Orc", "Troll", "Dragon", "Vampire", "Witch", "Demon", "Specter", "Giant"]
+MAX_HEALTH = 100
+ENEMY_DAMAGE = {"Goblin": 10, "Orc": 15, "Troll": 25, "Dragon": 40, "Vampire": 20, "Witch": 18, "Demon": 30, "Specter": 12, "Giant": 35}
+
+# Utility function for pauses
+def pause(message=""):
+    if message:
+        print(message)
+    input("\nPress Enter to continue...")
+
+# Player class
+class Player:
+    def __init__(self, name):
+        self.name = name
+        self.health = MAX_HEALTH
+        self.inventory = []
+        self.attack_power = 10
+        self.defense = 0
+        self.current_room = 0
+        self.gold = 0
+
     def __str__(self):
-        return f"{self.title} - {self.description} [{self.status}]"
+        return f"{self.name} - Health: {self.health} | Attack Power: {self.attack_power} | Defense: {self.defense} | Gold: {self.gold} | Inventory: {self.inventory}"
 
-# Task Manager class to manage tasks
-class TaskManager:
-    def __init__(self, file_name="tasks.txt"):
-        self.file_name = file_name
-        self.tasks = []
-        self.load_tasks()
-    
-    def load_tasks(self):
-        """Load tasks from the file into the task list"""
-        if os.path.exists(self.file_name):
-            with open(self.file_name, 'r') as file:
-                for line in file:
-                    title, description, status = line.strip().split('|')
-                    self.tasks.append(Task(title, description, status))
-    
-    def save_tasks(self):
-        """Save all tasks to the file"""
-        with open(self.file_name, 'w') as file:
-            for task in self.tasks:
-                file.write(f"{task.title}|{task.description}|{task.status}\n")
-    
-    def add_task(self, title, description):
-        """Add a new task"""
-        task = Task(title, description)
-        self.tasks.append(task)
-        self.save_tasks()
-        print(f"Task '{title}' added successfully.")
-    
-    def update_task(self, title, new_title=None, new_description=None, new_status=None):
-        """Update an existing task by title"""
-        for task in self.tasks:
-            if task.title == title:
-                if new_title:
-                    task.title = new_title
-                if new_description:
-                    task.description = new_description
-                if new_status:
-                    task.status = new_status
-                self.save_tasks()
-                print(f"Task '{title}' updated.")
-                return
-        print(f"Task '{title}' not found.")
-    
-    def delete_task(self, title):
-        """Delete a task by title"""
-        for task in self.tasks:
-            if task.title == title:
-                self.tasks.remove(task)
-                self.save_tasks()
-                print(f"Task '{title}' deleted.")
-                return
-        print(f"Task '{title}' not found.")
-    
-    def view_tasks(self):
-        """View all tasks"""
-        if not self.tasks:
-            print("No tasks found.")
-        for task in self.tasks:
-            print(task)
+    def take_damage(self, damage):
+        damage -= self.defense
+        if damage < 0:
+            damage = 0
+        self.health -= damage
+        if self.health <= 0:
+            self.health = 0
 
-# Command-line interface (CLI) for Task Manager
-class TaskManagerCLI:
+    def heal(self, amount):
+        self.health += amount
+        if self.health > MAX_HEALTH:
+            self.health = MAX_HEALTH
+
+    def add_item(self, item):
+        self.inventory.append(item)
+
+    def remove_item(self, item):
+        if item in self.inventory:
+            self.inventory.remove(item)
+
+    def attack(self, enemy):
+        damage = random.randint(self.attack_power - 3, self.attack_power + 3)
+        print(f"{self.name} attacks {enemy.name} and deals {damage} damage.")
+        enemy.take_damage(damage)
+
+# Enemy class
+class Enemy:
+    def __init__(self, name):
+        self.name = name
+        self.health = random.randint(30, 80)
+        self.attack_power = random.randint(5, 20)
+        self.defense = random.randint(0, 5)
+
+    def __str__(self):
+        return f"{self.name} - Health: {self.health} | Attack Power: {self.attack_power} | Defense: {self.defense}"
+
+    def take_damage(self, damage):
+        damage -= self.defense
+        if damage < 0:
+            damage = 0
+        self.health -= damage
+        if self.health <= 0:
+            self.health = 0
+
+    def attack(self, player):
+        damage = random.randint(self.attack_power - 5, self.attack_power + 5)
+        print(f"{self.name} attacks {player.name} and deals {damage} damage.")
+        player.take_damage(damage)
+
+# Item class
+class Item:
+    def __init__(self, name, effect, description=""):
+        self.name = name
+        self.effect = effect
+        self.description = description
+
+    def __str__(self):
+        return f"{self.name}: {self.description}"
+
+    def use(self, player):
+        print(f"{player.name} uses {self.name}. {self.effect}")
+        if "heal" in self.effect:
+            healing_amount = int(self.effect.split(" ")[1])
+            player.heal(healing_amount)
+        player.remove_item(self.name)
+
+# Room class
+class Room:
+    def __init__(self, name, description, has_enemy=False, enemy=None, item=None):
+        self.name = name
+        self.description = description
+        self.has_enemy = has_enemy
+        self.enemy = enemy
+        self.item = item
+        self.explored = False
+
+    def enter(self, player):
+        print(f"\nYou enter the {self.name}. {self.description}")
+        if self.explored:
+            print(f"You've already explored this room.")
+            return
+        if self.has_enemy:
+            pause()
+            self.fight(player)
+        elif self.item:
+            pause(f"A {self.item} is here!")
+            player.add_item(self.item.name)
+            print(f"You pick up the {self.item}.")
+        else:
+            print("There's nothing of interest here.")
+        self.explored = True
+        pause()
+
+    def fight(self, player):
+        print(f"An enemy, {self.enemy.name}, appears!")
+        while self.enemy.health > 0 and player.health > 0:
+            player.attack(self.enemy)
+            if self.enemy.health > 0:
+                self.enemy.attack(player)
+            if player.health <= 0:
+                print("You have been defeated!")
+                break
+        if player.health > 0:
+            print(f"You defeated the {self.enemy.name}!")
+            pause()
+
+# Shop class
+class Shop:
     def __init__(self):
-        self.manager = TaskManager()
+        self.items_for_sale = [
+            Item("Health Potion", "heal 20", "Restores 20 health points."),
+            Item("Sword", "increase attack", "Increases your attack power."),
+            Item("Shield", "increase defense", "Increases your defense."),
+            Item("Gold Coin", "increase gold", "Adds 10 gold to your inventory.")
+        ]
+
+    def show_items(self):
+        print("\nWelcome to the shop! Here are the items available for purchase:")
+        for idx, item in enumerate(self.items_for_sale):
+            print(f"{idx + 1}. {item.name} - {item.effect} | Price: 10 Gold")
+
+    def sell_item(self, player, item_choice):
+        if item_choice < 1 or item_choice > len(self.items_for_sale):
+            print("Invalid choice!")
+            return
+        item = self.items_for_sale[item_choice - 1]
+        if player.gold >= 10:
+            player.gold -= 10
+            player.add_item(item)
+            print(f"You bought {item.name} for 10 Gold.")
+        else:
+            print("You don't have enough gold to buy this item.")
+
+# Game class
+class Game:
+    def __init__(self):
+        self.player = None
+        self.rooms = self.create_rooms()
+        self.shop = Shop()
+        self.game_over = False
+        self.current_shop = False
+
+    def create_rooms(self):
+        room_list = []
+        for room_name in ROOMS:
+            description = f"This is the {room_name}."
+            has_enemy = random.choice([True, False])
+            enemy = None
+            item = None
+            if has_enemy:
+                enemy = Enemy(random.choice(ENEMIES))
+            if random.random() < 0.5:
+                item = Item(random.choice(ITEMS), random.choice(["heal 20", "increase attack", "increase defense"]))
+            room_list.append(Room(room_name, description, has_enemy, enemy, item))
+        return room_list
+
+    def start_game(self):
+        name = input("Enter your character's name: ")
+        self.player = Player(name)
+        print(f"Welcome to the dungeon, {self.player.name}!")
+        pause()
+
+        while not self.game_over:
+            self.show_status()
+            self.show_room_options()
+            choice = self.get_choice()
+            self.process_choice(choice)
+
+    def show_status(self):
+        print(f"\n{self.player}\n")
     
-    def show_menu(self):
-        """Display the main menu"""
-        print("\nTask Manager")
-        print("1. View all tasks")
-        print("2. Add a new task")
-        print("3. Update an existing task")
-        print("4. Delete a task")
-        print("5. Exit")
-    
-    def get_user_choice(self):
-        """Get user's choice from the menu"""
+    def show_room_options(self):
+        print("\nWhere do you want to go?")
+        for idx, room in enumerate(self.rooms):
+            print(f"{idx + 1}. {room.name}")
+        print(f"{len(self.rooms) + 1}. Visit Shop")
+
+    def get_choice(self):
         while True:
             try:
-                choice = int(input("Choose an option: "))
-                if choice in [1, 2, 3, 4, 5]:
-                    return choice
+                choice = int(input("Choose a room or shop (1-11): "))
+                if 1 <= choice <= len(self.rooms) + 1:
+                    return choice - 1
                 else:
                     print("Invalid choice, try again.")
             except ValueError:
-                print("Please enter a valid number.")
-    
-    def execute_choice(self, choice):
-        """Execute the chosen option"""
-        if choice == 1:
-            self.manager.view_tasks()
-        elif choice == 2:
-            title = input("Enter task title: ")
-            description = input("Enter task description: ")
-            self.manager.add_task(title, description)
-        elif choice == 3:
-            title = input("Enter task title to update: ")
-            new_title = input("Enter new title (leave blank to keep current): ")
-            new_description = input("Enter new description (leave blank to keep current): ")
-            new_status = input("Enter new status (leave blank to keep current): ")
-            self.manager.update_task(title, new_title or None, new_description or None, new_status or None)
-        elif choice == 4:
-            title = input("Enter task title to delete: ")
-            self.manager.delete_task(title)
-        elif choice == 5:
-            print("Goodbye!")
-            exit()
+                print("Invalid input. Please enter a number.")
 
-    def run(self):
-        """Run the CLI"""
-        while True:
-            self.show_menu()
-            choice = self.get_user_choice()
-            self.execute_choice(choice)
+    def process_choice(self, choice):
+        if choice == len(self.rooms):
+            self.visit_shop()
+        else:
+            room = self.rooms[choice]
+            room.enter(self.player)
+            if self.player.health <= 0:
+                print("Game Over!")
+                self.game_over = True
 
-# Run the Task Manager CLI
+        self.player.current_room = choice
+        self.check_for_endgame()
+
+    def check_for_endgame(self):
+        if self.player.current_room == len(self.rooms) - 1:
+            print("You have reached the Treasure Room!")
+            self.game_over = True
+
+    def visit_shop(self):
+        self.shop.show_items()
+        item_choice = int(input("Choose an item to buy (1-4): "))
+        self.shop.sell_item(self.player, item_choice)
+        pause()
+
+# Main loop to start the game
 if __name__ == "__main__":
-    cli = TaskManagerCLI()
-    cli.run()
+    game = Game()
+    game.start_game()
 
